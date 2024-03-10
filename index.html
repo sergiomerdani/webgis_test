@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link
+      rel="icon"
+      type="image/x-icon"
+      href="https://openlayers.org/favicon.ico"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script
+      src="https://kit.fontawesome.com/ddf386aee4.js"
+      crossorigin="anonymous"
+    ></script>
+    <title>Using OpenLayers with Vite</title>
+  </head>
+  <body>
+    <button
+      class="fa-button"
+      id="selectControlButton"
+      title="Select By Attributes"
+    >
+      <i class="fa-solid fa-binoculars"></i>
+    </button>
+    <button class="fa-button" id="drawPolygon" title="Draw Polygon">
+      <i class="fa-solid fa-pen"></i>
+    </button>
+    <button class="fa-button" id="modifyFeature" title="Modify Feature">
+      <i class="fa-solid fa-pen-to-square"></i>
+    </button>
+    <button class="fa-button" id="selectFeature" title="Select Feature">
+      <i class="fa-solid fa-arrow-pointer"></i>
+    </button>
+    <button class="fa-button" id="deleteFeature" title="Delete Feature">
+      <i class="fa-solid fa-trash"></i>
+    </button>
+    <button id="drawWfs" title="Create WFS">Create Polygon</button>
+    <button id="deleteWfs" title="Delete WFS">Delete Polygon</button>
+    <button class="fa-button" id="selectByPolygon" title="Select By Polygon">
+      <i class="fa-solid fa-magnifying-glass"></i>
+    </button>
+    <button class="fa-button" id="getFields" title="Get Fields">
+      <i class="fa-solid fa-database"></i>
+    </button>
+    <button class="fa-button" id="getInfo" title="Get Info">
+      <i class="fa-solid fa-circle-info"></i>
+    </button>
+    <button class="fa-button" id="addID" title="Add ID">
+      <i class="fa-solid fa-plus"></i>
+    </button>
+    <button class="fa-button" id="saveToLayer" title="Save to Layer">
+      Save Layer
+    </button>
+    <div class="selectControl" hidden>
+      <h1>Layer Selector</h1>
+      <label for="layerSelect">Select Layer:</label><br />
+      <select id="layerSelect">
+        <option value="" selected disabled></option></select
+      ><br />
+      <label for="fieldSelect">Select Field:</label><br />
+      <select id="fieldSelect"></select
+      ><br />
+      <label for="operator">Select Operator:</label> <br />
+      <select id="operator">
+        <option value="" selected disabled></option>
+        <option value="=">Equal (=)</option>
+        <option value=">">Greater Than (>)</option>
+        <option value="&lt;">Less Than (&lt;)</option>
+        <option value="LIKE">Like (LIKE)</option>
+      </select>
+      <br />
+      <label for="attributeSelect">Select Attribute:</label> <br />
+      <select id="attributeSelect"></select>
+      <br />
+      <input type="button" value="Submit" id="sumbmitBtn" />
+    </div>
+    <div id="map">
+      <div class="form-container" style="display: none">
+        <span class="close-form">&times;</span>
+      </div>
+    </div>
+    <div id="popup" class="ol-popup">
+      <div>
+        <label for="id-input">ID: </label>
+        <input type="text" id="id-input" placeholder="ID" />
+      </div>
+      <div>
+        <label for="name-input">Name: </label>
+        <input type="text" id="name-input" placeholder="Name" />
+      </div>
+      <div>
+        <label for="status-input">Status: </label>
+        <input type="text" id="status-input" placeholder="Status" />
+      </div>
+      <button type="submit" class="primary" id="saveButton">Save</button>
+    </div>
+    <script type="module" src="./main2.js"></script>
+  </body>
+</html>

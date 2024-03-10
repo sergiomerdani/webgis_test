@@ -1,0 +1,122 @@
+@import "node_modules/ol/ol.css";
+@import "./node_modules/ol-ext/control/LayerSwitcher.css";
+@import "./node_modules/ol-ext/overlay/Popup.css";
+@import "./node_modules/ol-ext/control/PrintDialog.css";
+@import "./node_modules/ol-ext/dist/ol-ext.css";
+
+body,
+html {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+#textareaForm {
+  height: 15%;
+  margin-left: 10px;
+}
+
+#map {
+  height: 90%;
+  width: 100%;
+}
+
+.ol-layerswitcher {
+  pointer-events: auto;
+  position: absolute;
+  top: 0;
+  left: 10px;
+  width: 20%;
+}
+
+.ol-layerswitcher-image > button,
+.ol-layerswitcher > button {
+  background-color: white;
+  float: left;
+  z-index: 10;
+  position: relative;
+  font-size: 1.7em;
+}
+
+.selectControl {
+  padding: 30px;
+  position: fixed;
+  top: 90px;
+  right: 20px;
+  width: auto;
+  height: auto;
+  background-color: #c7e6ff;
+  z-index: 1000;
+  opacity: 0.9;
+  max-width: 400px;
+  margin: 0 auto;
+  padding: 20px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.selectControl h1 {
+  font-size: 24px;
+  margin-bottom: 10px;
+}
+
+label {
+  display: block;
+  font-weight: bold;
+  margin-top: 10px;
+}
+
+select {
+  width: 100%;
+  padding: 5px;
+  margin-top: 5px;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+}
+
+input[type="button"] {
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 3px;
+  padding: 10px 20px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+input[type="button"]:hover {
+  background-color: #0056b3;
+}
+
+.ol-scale-line {
+  position: absolute;
+  left: 50%;
+  bottom: 10px; /* Adjust the bottom position as needed */
+  transform: translateX(-50%);
+  z-index: 1000; /* Ensure it's above other map elements */
+}
+/* 
+.ol-legend {
+  position: absolute;
+  left: 200%;
+  bottom: 10px;
+  transform: translateX(800%);
+  z-index: 1000;
+} */
+
+/* Styling for the popup */
+.ol-popup {
+  position: absolute;
+  background-color: white;
+  padding: 15px;
+  border: 1px solid #cccccc;
+  bottom: 12px;
+  left: -50px;
+  min-width: 100px;
+}
+
+.primary {
+  background-color: rgb(116, 196, 116);
+}
