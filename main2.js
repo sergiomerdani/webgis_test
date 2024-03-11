@@ -97,6 +97,36 @@ const shkshInstitucionet = new TileLayer({
   displayInLayerSwitcher: true,
 });
 
+const wfsVectorSourcePoints = new VectorSource({
+  url: "http://localhost:8080/geoserver/test/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=test:points&maxFeatures=50&outputFormat=application/json",
+  format: new GeoJSON(),
+  attributions: "@geoserver",
+});
+
+//ADD WFS
+const wfsVectorLayerPoints = new VectorLayer({
+  source: wfsVectorSourcePoints,
+  title: "Points Vector Layer",
+  // crossOrigin: "anonymous",
+  // opacity: 0,
+  visible: true,
+});
+
+const wfsVectorSourcePolygon = new VectorSource({
+  url: "http://localhost:8080/geoserver/test/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=test:polygon&maxFeatures=50&outputFormat=application/json",
+  format: new GeoJSON(),
+  attributions: "@geoserver",
+});
+
+//ADD WFS
+const wfsVectorLayerPolygon = new VectorLayer({
+  source: wfsVectorSourcePolygon,
+  title: "Polygon Vector Layer",
+  // crossOrigin: "anonymous",
+  // opacity: 0,
+  visible: true,
+});
+
 const shkshSherbimet = new TileLayer({
   source: new TileWMS({
     url: "http://localhost:8080/geoserver/test/wms?service=WMS",
@@ -111,44 +141,6 @@ const shkshSherbimet = new TileLayer({
   information: "Kufiri i tokësor i republikës së Shqipërisë",
   displayInLayerSwitcher: true,
 });
-
-// Topo layer from local geoserver
-// const topo_10k = new Tile({
-//   source: new TileWMS({
-//     url: "http://localhost:8080/geoserver/my_workspace1/wms",
-//     params: { LAYERS: "my_workspace1:10K_Topografike" },
-//   }),
-//   opacity: 1,
-//   visible: false,
-//   title: "topo 10k",
-//   attributions:
-//     '<a href="https://www.geoserver.org/copyright/">Geoserver contributors</a>',
-// });
-
-//Nomeklatura 5000 from ASIG Geoportal
-// const nom_5000 = new TileLayer({
-//   source: new TileWMS({
-//     url: "https://geoportal.asig.gov.al/service/igju/wms?request=GetCapabilities",
-//     params: {
-//       LAYERS: "nomeklatura_5000",
-//     },
-//     projection: "EPSG:4326",
-//   }),
-
-//   opacity: 1,
-//   visible: false,
-//   title: "asigWMS",
-//   attributions: '<a href="https://www.geoserver.org/copyright/">Asig</a>',
-// });
-
-// const geojson = new VectorLayer({
-//   source: new VectorSource({
-//     url: "data/poly.geojson",
-//     format: new GeoJSON(),
-//   }),
-//   visible: false,
-//   title: "GeoJson",
-// });
 
 asigMaps = new Group({
   layers: [shkshInstitucionet, shkshSherbimet],
@@ -166,8 +158,10 @@ const map = new Map({
   }),
 });
 
-map.addLayer(shkshInstitucionet);
-map.addLayer(shkshSherbimet);
+// map.addLayer(shkshInstitucionet);
+// map.addLayer(shkshSherbimet);
+map.addLayer(wfsVectorLayerPoints);
+map.addLayer(wfsVectorLayerPolygon);
 
 //WMTS Ortho 2015
 var wmts_parser = new WMTSCapabilities();
@@ -321,17 +315,57 @@ layerGroups.forEach((layerGroup) => {
 const layerSwitcher = new LayerSwitcher({
   collapsed: false,
   onchangeCheck: onChangeCheck,
+  selection: true,
 });
 map.addControl(layerSwitcher);
 
+let layerParam,
+  layerType,
+  vectorLayer,
+  featureName,
+  wfsVectorSource,
+  formattedCoordinates,
+  workspace = "test";
+
+layerSwitcher.on("select", (e) => {
+  const layer = e.layer;
+  const layerName = layer.get("title");
+  const features = layer.getSource().getFeatures();
+  // features.forEach((feature) => {
+  //   console.log(feature.getGeometry().getCoordinates());
+  // });
+  if (layerName === "Line Vector Layer") {
+    layerParam = "test:line";
+    layerType = "LineString";
+    featureName = "line";
+    vectorLayer = wfsVectorLayerLine;
+    wfsVectorSource = wfsVectorSourceLine;
+    console.log(layerType);
+  } else if (layerName === "Points Vector Layer") {
+    layerParam = "test:points";
+    layerType = "Point";
+    featureName = "points";
+    vectorLayer = wfsVectorLayerPoints;
+    wfsVectorSource = wfsVectorSourcePoints;
+    console.log(layerParam);
+  } else if (layerName === "Polygon Vector Layer") {
+    layerParam = "test:polygon";
+    layerType = "Polygon";
+    featureName = "polygon";
+    vectorLayer = wfsVectorLayerPolygon;
+    wfsVectorSource = wfsVectorSourcePolygon;
+    console.log(layerParam);
+  }
+});
+
 //DRAW INTERACTION
 // Create a vector source and layer for the drawn features
-const vectorSource = new VectorSource();
-const vectorLayer = new VectorLayer({
-  source: vectorSource,
-  displayInLayerSwitcher: false,
-});
-map.addLayer(vectorLayer);
+// const vectorSource = new VectorSource();
+// const vectorLayer = new VectorLayer({
+//   source: vectorSource,
+//   displayInLayerSwitcher: false,
+// });
+// map.addLayer(vectorLayer);
 
 const drawFeature = document.getElementById("drawPolygon");
 const selectFeature = document.getElementById("selectFeature");
@@ -340,21 +374,21 @@ const modifyfeature = document.getElementById("modifyFeature");
 const deletefeature = document.getElementById("deleteFeature");
 let select, draw, listener, sketch, modify;
 
-drawFeature.addEventListener("click", (e) => {
-  // Drawing interaction
-  draw = new Draw({
-    source: vectorSource,
-    type: "Polygon",
-    //only draw when Ctrl is pressed.
-    condition: platformModifierKeyOnly,
-  });
-  map.addInteraction(draw);
-});
+// drawFeature.addEventListener("click", (e) => {
+//   // Drawing interaction
+//   draw = new Draw({
+//     source: vectorSource,
+//     type: "Point",
+//     //only draw when Ctrl is pressed.
+//     // condition: platformModifierKeyOnly,
+//   });
+//   map.addInteraction(draw);
+// });
 
 //MODIFY INTERACTION
 modifyfeature.addEventListener("click", (e) => {
   map.removeInteraction(draw);
-  const modify = new Modify({ source: wfsVectorLayer.getSource() });
+  const modify = new Modify({ source: wfsVectorLayerLine.getSource() });
   map.addInteraction(modify);
 
   // Define a function to handle the geometry modification event
@@ -470,28 +504,28 @@ selectFeature.addEventListener("click", (e) => {
   });
 });
 
-const wfsVectorSource = new VectorSource({
+const wfsVectorSourceLine = new VectorSource({
   url: "http://localhost:8080/geoserver/test/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=test:line&maxFeatures=50&outputFormat=application/json",
   format: new GeoJSON(),
   attributions: "@geoserver",
 });
 
 //ADD WFS
-const wfsVectorLayer = new VectorLayer({
-  source: wfsVectorSource,
-  title: "Adm Vector",
+const wfsVectorLayerLine = new VectorLayer({
+  source: wfsVectorSourceLine,
+  title: "Line Vector Layer",
   // crossOrigin: "anonymous",
   // opacity: 0,
   visible: true,
 });
-map.addLayer(wfsVectorLayer);
+map.addLayer(wfsVectorLayerLine);
 
 const drawFeatureWfs = document.getElementById("drawWfs");
 // Draw Feature Event Listener
 drawFeatureWfs.addEventListener("click", (e) => {
   draw = new Draw({
-    source: wfsVectorLayer.getSource(),
-    type: "LineString",
+    source: vectorLayer.getSource(),
+    type: layerType,
   });
 
   map.addInteraction(draw);
@@ -501,11 +535,32 @@ drawFeatureWfs.addEventListener("click", (e) => {
     const featureID = feature.getId();
     // Set the ID attribute to the feature
     const coordinates = feature.getGeometry().getCoordinates();
+    console.log(coordinates);
 
-    // Map over the array and join each pair of coordinates with a space
-    const formattedCoordinates = coordinates
-      .map((pair) => pair.join(","))
-      .join(" ");
+    if (layerType === "LineString") {
+      // Map over the array and join each pair of coordinates with a space
+      formattedCoordinates = coordinates
+        .map((pair) => pair.join(","))
+        .join(" ");
+
+      console.log("Line Coordinates:", formattedCoordinates);
+    } else if (layerType === "Polygon") {
+      const formattedData = coordinates.map((set) =>
+        set
+          .map((coord) => coord.join(","))
+          .slice(0, -1)
+          .join(" ")
+      );
+
+      // Join the formatted data by newline
+      formattedCoordinates = formattedData.join("\n");
+
+      console.log("Polygon Coordinates:", formattedCoordinates);
+    } else if (layerType === "Point") {
+      const switchedCoordinates = [coordinates[1], coordinates[0]];
+
+      formattedCoordinates = switchedCoordinates.join(" ");
+    }
 
     url = "http://localhost:8080/geoserver/test/ows";
 
@@ -516,8 +571,8 @@ drawFeatureWfs.addEventListener("click", (e) => {
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:schemaLocation="http://www.opengis.net/wfs http://schemas.opengis.net/wfs/1.0.0/WFS-transaction.xsd http://www.openplans.org http://localhost:8080/geoserver/wfs/DescribeFeatureType?typename=test:line">
     <wfs:Insert>
-      <line>
-        <test:geom>
+      <${featureName}>
+        <${workspace}:geom>
           <gml:MultiLineString srsName="http://www.opengis.net/gml/srs/epsg.xml#32634">
             <gml:lineStringMember>
               <gml:LineString>
@@ -527,9 +582,9 @@ drawFeatureWfs.addEventListener("click", (e) => {
               </gml:LineString>
             </gml:lineStringMember>
           </gml:MultiLineString>
-        </test:geom>
-        <test:TYPE>alley</test:TYPE>
-      </line>
+        </${workspace}:geom>
+        <${workspace}:TYPE>alley</${workspace}:TYPE>
+      </${featureName}>
     </wfs:Insert>
     </wfs:Transaction>`;
 
@@ -571,7 +626,7 @@ deleteWFS.addEventListener("click", (e) => {
   console.log(selectedFeaturesArray);
   selectedFeaturesArray.forEach((feature) => {
     // Do something with the feature
-    wfsVectorLayer.getSource().removeFeature(feature);
+    wfsVectorLayerLine.getSource().removeFeature(feature);
     const selectedFeatureValueID = feature.get("id");
     // You can perform any other operations with the feature here
     url = "http://localhost:8080/geoserver/test/ows";
@@ -755,7 +810,7 @@ function updatePropertyID(featureID) {
   xmlns:topp="http://www.openplans.org/topp"
   xmlns:ogc="http://www.opengis.net/ogc"
   xmlns:wfs="http://www.opengis.net/wfs">
-  <wfs:Update typeName="test:line">
+  <wfs:Update typeName="${layerParam}">
   <wfs:Property>
   <wfs:Name>id</wfs:Name>
   <wfs:Value>${featureID}</wfs:Value>
