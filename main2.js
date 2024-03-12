@@ -26,7 +26,8 @@ import Overlay from "ol/Overlay.js";
 import CanvasAttribution from "ol-ext/control/CanvasAttribution";
 import CanvasScaleLine from "ol-ext/control/CanvasScaleLine";
 import CanvasTitle from "ol-ext/control/CanvasTitle";
-import { Style, Text, Icon, Stroke, Fill, Image } from "ol/style";
+import { Style, Text, Icon, Stroke, Fill } from "ol/style";
+import CircleStyle from "ol/style/Circle.js";
 
 import Legend from "ol-ext/legend/Legend";
 import Layer from "ol/layer/Layer";
@@ -42,13 +43,26 @@ proj4.defs(
 );
 register(proj4);
 
+proj4.defs(
+  "EPSG:32634",
+  "+proj=utm +zone=34 +datum=WGS84 +units=m +no_defs +type=crs"
+);
+register(proj4);
+
 const projection6870 = new Projection({
   code: "EPSG:6870",
   extent: [-2963585.56, 3639475.76, 2404277.44, 9525908.77],
   worldExtent: [-90, -90, 90, 90],
 });
 
+const proj32634 = new Projection({
+  code: "EPSG:32634",
+  extent: [166021.44, 0.0, 833978.56, 9329005.18],
+  worldExtent: [18.0, 0.0, 24.0, 84.0],
+});
+
 const krgjshCenter = [487634.64309, 4577027.351259];
+const utmCenter = [401170.19359, 4575960.311822];
 
 let asigMaps;
 
@@ -127,6 +141,21 @@ const wfsVectorLayerPolygon = new VectorLayer({
   visible: true,
 });
 
+const wfsVectorSourceLine = new VectorSource({
+  url: "http://localhost:8080/geoserver/test/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=test:line&maxFeatures=50&outputFormat=application/json",
+  format: new GeoJSON(),
+  attributions: "@geoserver",
+});
+
+//ADD WFS
+const wfsVectorLayerLine = new VectorLayer({
+  source: wfsVectorSourceLine,
+  title: "Line Vector Layer",
+  // crossOrigin: "anonymous",
+  // opacity: 0,
+  visible: true,
+});
+
 const shkshSherbimet = new TileLayer({
   source: new TileWMS({
     url: "http://localhost:8080/geoserver/test/wms?service=WMS",
@@ -152,8 +181,8 @@ const map = new Map({
   target: "map",
   layers: [osm],
   view: new View({
-    projection: projection6870,
-    center: krgjshCenter,
+    projection: proj32634,
+    center: utmCenter,
     zoom: 5,
   }),
 });
@@ -162,6 +191,7 @@ const map = new Map({
 // map.addLayer(shkshSherbimet);
 map.addLayer(wfsVectorLayerPoints);
 map.addLayer(wfsVectorLayerPolygon);
+map.addLayer(wfsVectorLayerLine);
 
 //WMTS Ortho 2015
 var wmts_parser = new WMTSCapabilities();
@@ -325,7 +355,9 @@ let layerParam,
   featureName,
   wfsVectorSource,
   formattedCoordinates,
-  workspace = "test";
+  workspace = "test",
+  body,
+  featureIDvalue;
 
 layerSwitcher.on("select", (e) => {
   const layer = e.layer;
@@ -452,20 +484,40 @@ modifyfeature.addEventListener("click", (e) => {
 });
 
 //SELECT FEATURE
+// Define a style for point features
+const selectedPointStyle = new Style({
+  image: new CircleStyle({
+    radius: 6,
+    fill: new Fill({
+      color: "red", // Set the fill color of the circle
+    }),
+    stroke: new Stroke({
+      color: "rgba(254, 246, 0, 1)", // Set the border color of the circle
+      width: 2, // Set the border width
+    }),
+  }),
+});
 const selected = new Style({
   fill: new Fill({
-    color: "#eeeeee",
+    color: "rgba(254, 246, 0, 1)",
   }),
   stroke: new Stroke({
-    color: "rgba(255, 255, 255, 0.7)",
+    color: "rgba(254, 246, 0, 1)",
     width: 2,
   }),
 });
 
 function selectStyle(feature) {
-  const color = feature.get("COLOR") || "#eeeeee";
-  selected.getFill().setColor(color);
-  return selected;
+  const geometry = feature.getGeometry();
+
+  // Check if the feature's geometry is a point
+  if (geometry instanceof Point) {
+    return selectedPointStyle; // Return the selected style for points
+  } else {
+    const color = feature.get("COLOR") || "#eeeeee";
+    selected.getFill().setColor(color);
+    return selected;
+  }
 }
 
 let selectSingleClick,
@@ -504,22 +556,6 @@ selectFeature.addEventListener("click", (e) => {
   });
 });
 
-const wfsVectorSourceLine = new VectorSource({
-  url: "http://localhost:8080/geoserver/test/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=test:line&maxFeatures=50&outputFormat=application/json",
-  format: new GeoJSON(),
-  attributions: "@geoserver",
-});
-
-//ADD WFS
-const wfsVectorLayerLine = new VectorLayer({
-  source: wfsVectorSourceLine,
-  title: "Line Vector Layer",
-  // crossOrigin: "anonymous",
-  // opacity: 0,
-  visible: true,
-});
-map.addLayer(wfsVectorLayerLine);
-
 const drawFeatureWfs = document.getElementById("drawWfs");
 // Draw Feature Event Listener
 drawFeatureWfs.addEventListener("click", (e) => {
@@ -535,36 +571,13 @@ drawFeatureWfs.addEventListener("click", (e) => {
     const featureID = feature.getId();
     // Set the ID attribute to the feature
     const coordinates = feature.getGeometry().getCoordinates();
-    console.log(coordinates);
-
     if (layerType === "LineString") {
       // Map over the array and join each pair of coordinates with a space
       formattedCoordinates = coordinates
         .map((pair) => pair.join(","))
         .join(" ");
-
       console.log("Line Coordinates:", formattedCoordinates);
-    } else if (layerType === "Polygon") {
-      const formattedData = coordinates.map((set) =>
-        set
-          .map((coord) => coord.join(","))
-          .slice(0, -1)
-          .join(" ")
-      );
-
-      // Join the formatted data by newline
-      formattedCoordinates = formattedData.join("\n");
-
-      console.log("Polygon Coordinates:", formattedCoordinates);
-    } else if (layerType === "Point") {
-      const switchedCoordinates = [coordinates[1], coordinates[0]];
-
-      formattedCoordinates = switchedCoordinates.join(" ");
-    }
-
-    url = "http://localhost:8080/geoserver/test/ows";
-
-    const body = `<wfs:Transaction service="WFS" version="1.0.0"
+      body = `<wfs:Transaction service="WFS" version="1.0.0"
     xmlns:wfs="http://www.opengis.net/wfs"
     xmlns:test="http://www.openplans.org/test"
     xmlns:gml="http://www.opengis.net/gml"
@@ -587,6 +600,63 @@ drawFeatureWfs.addEventListener("click", (e) => {
       </${featureName}>
     </wfs:Insert>
     </wfs:Transaction>`;
+    } else if (layerType === "Polygon") {
+      const formattedData = coordinates.map((set) =>
+        set
+          .map((coord) => coord.join(","))
+          .slice(0, -1)
+          .join(" ")
+      );
+      // Join the formatted data by newline
+      formattedCoordinates = formattedData.join("\n");
+      console.log("Polygon Coordinates:", formattedCoordinates);
+      body = `<wfs:Transaction service="WFS" version="1.0.0"
+    xmlns:wfs="http://www.opengis.net/wfs"
+    xmlns:test="http://www.openplans.org/test"
+    xmlns:gml="http://www.opengis.net/gml"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.opengis.net/wfs http://schemas.opengis.net/wfs/1.0.0/WFS-transaction.xsd http://www.openplans.org http://localhost:8080/geoserver/wfs/DescribeFeatureType?typename=test:line">
+    <wfs:Insert>
+      <${featureName}>
+        <${workspace}:geom>
+          <gml:MultiLineString srsName="http://www.opengis.net/gml/srs/epsg.xml#32634">
+            <gml:lineStringMember>
+              <gml:LineString>
+                <gml:coordinates decimal="." cs="," ts=" ">
+                ${formattedCoordinates}
+                </gml:coordinates>
+              </gml:LineString>
+            </gml:lineStringMember>
+          </gml:MultiLineString>
+        </${workspace}:geom>
+        <${workspace}:TYPE>alley</${workspace}:TYPE>
+      </${featureName}>
+    </wfs:Insert>
+    </wfs:Transaction>`;
+    } else if (layerType === "Point") {
+      formattedCoordinates = coordinates.join(",");
+      console.log("Point Coordinates:", formattedCoordinates);
+      body = `<wfs:Transaction service="WFS" version="1.0.0"
+      xmlns:wfs="http://www.opengis.net/wfs"
+      xmlns:test="http://www.openplans.org/test"
+      xmlns:gml="http://www.opengis.net/gml"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="http://www.opengis.net/wfs http://schemas.opengis.net/wfs/1.0.0/WFS-transaction.xsd http://www.openplans.org http://localhost:8080/geoserver/wfs/DescribeFeatureType?typename=test:line">
+      <wfs:Insert>
+        <${featureName}>
+          <${workspace}:geom>
+          <gml:Point srsDimension="2" srsName="urn:x-ogc:def:crs:EPSG:32634">
+          <gml:coordinates xmlns:gml="http://www.opengis.net/gml"
+          decimal="." cs="," ts=" ">${formattedCoordinates}</gml:coordinates>
+          </gml:Point>
+          </${workspace}:geom>
+          <${workspace}:TYPE>alley</${workspace}:TYPE>
+        </${featureName}>
+      </wfs:Insert>
+      </wfs:Transaction>`;
+    }
+
+    url = "http://localhost:8080/geoserver/test/ows";
 
     const options = {
       method: "POST",
@@ -626,7 +696,7 @@ deleteWFS.addEventListener("click", (e) => {
   console.log(selectedFeaturesArray);
   selectedFeaturesArray.forEach((feature) => {
     // Do something with the feature
-    wfsVectorLayerLine.getSource().removeFeature(feature);
+    vectorLayer.getSource().removeFeature(feature);
     const selectedFeatureValueID = feature.get("id");
     // You can perform any other operations with the feature here
     url = "http://localhost:8080/geoserver/test/ows";
@@ -635,7 +705,7 @@ deleteWFS.addEventListener("click", (e) => {
                   xmlns:ogc="http://www.opengis.net/ogc"
                   xmlns:wfs="http://www.opengis.net/wfs"
                   xmlns:topp="http://www.openplans.org/topp">
-                  <wfs:Delete typeName="test:line">
+                  <wfs:Delete typeName="${layerParam}">
                     <ogc:Filter>
                       <ogc:PropertyIsEqualTo>
                         <ogc:PropertyName>id</ogc:PropertyName>
@@ -689,22 +759,31 @@ getInfoButton.addEventListener("click", (e) => {
   getFeatureInfo();
 });
 
-// Function to handle getting feature info
 function getFeatureInfo() {
+  // Define the tolerance value (in pixels)
+  const tolerance = 5; // Adjust this value based on your requirements
+
   // Listen for single clicks on the map
   map.on("singleclick", function (event) {
     const coordinate = event.coordinate;
     // Get the clicked pixel
     const pixel = event.pixel;
-    // Check if a feature is present at the clicked pixel
-    map.forEachFeatureAtPixel(pixel, function (feature) {
-      featureID = feature.getId();
-      // Access properties of the clicked feature
-      var properties = feature.getProperties();
-      updatePopupContent(properties);
-      // Set popup position to the clicked coordinate
-      popup.setPosition(coordinate);
-    });
+
+    // Check if a feature is present within the specified tolerance
+    map.forEachFeatureAtPixel(
+      pixel,
+      function (feature) {
+        featureID = feature.getId();
+        // Access properties of the clicked feature
+        var properties = feature.getProperties();
+        updatePopupContent(properties);
+        // Set popup position to the clicked coordinate
+        popup.setPosition(coordinate);
+      },
+      {
+        hitTolerance: tolerance, // Apply the tolerance value
+      }
+    );
   });
 }
 
@@ -790,36 +869,41 @@ saveButton.addEventListener("click", (e) => {
 });
 
 //UPDATE FEATURE ID
-const addIDButton = document.getElementById("addID");
+// const addIDButton = document.getElementById("addID");
 
-addIDButton.addEventListener("click", function (e) {
-  const selectedFeatures = selectSingleClick.getFeatures();
-  const selectedFeaturesArray = selectedFeatures.getArray();
-  selectedFeaturesArray.forEach((feature) => {
-    const properties = feature.getProperties();
-    console.log(properties.id);
-    console.log(feature.id_);
-    updatePropertyID(feature.id_);
-  });
-});
+// addIDButton.addEventListener("click", function (e) {
+//   const selectedFeatures = selectSingleClick.getFeatures();
+//   const selectedFeaturesArray = selectedFeatures.getArray();
+//   selectedFeaturesArray.forEach((feature) => {
+//     const properties = feature.getProperties();
+//     console.log(properties.id);
+//     console.log(feature.id_);
+//     updatePropertyID(feature.id_);
+//   });
+// });
+
+//SAVE TO LAYER
+const saveToLayerButton = document.getElementById("saveToLayer");
+
 function updatePropertyID(featureID) {
   url = "http://localhost:8080/geoserver/test/ows";
+  featureIDvalue = featureID;
 
   var updateBody = `
-  <wfs:Transaction service="WFS" version="1.0.0"
-  xmlns:topp="http://www.openplans.org/topp"
-  xmlns:ogc="http://www.opengis.net/ogc"
-  xmlns:wfs="http://www.opengis.net/wfs">
-  <wfs:Update typeName="${layerParam}">
-  <wfs:Property>
-  <wfs:Name>id</wfs:Name>
-  <wfs:Value>${featureID}</wfs:Value>
-  </wfs:Property>
-    <ogc:Filter>
-      <ogc:FeatureId fid="${featureID}"/>
-    </ogc:Filter>
-  </wfs:Update>
-</wfs:Transaction>
+    <wfs:Transaction service="WFS" version="1.0.0"
+    xmlns:topp="http://www.openplans.org/topp"
+    xmlns:ogc="http://www.opengis.net/ogc"
+    xmlns:wfs="http://www.opengis.net/wfs">
+    <wfs:Update typeName="${layerParam}">
+    <wfs:Property>
+    <wfs:Name>id</wfs:Name>
+    <wfs:Value>${featureIDvalue}</wfs:Value>
+    </wfs:Property>
+      <ogc:Filter>
+        <ogc:FeatureId fid="${featureID}"/>
+      </ogc:Filter>
+    </wfs:Update>
+    </wfs:Transaction>
   `;
 
   const updateOptions = {
@@ -845,19 +929,19 @@ function updatePropertyID(featureID) {
     });
 }
 
-//SAVE TO LAYER
-const saveToLayerButton = document.getElementById("saveToLayer");
-
 saveToLayerButton.addEventListener("click", (e) => {
   // Get all features from the vector source
   const features = wfsVectorSource.getFeatures();
-  const lastFeature = features[features.length - 1];
-  // Access feature properties
-  const lastFeatureId = lastFeature.getId();
 
-  // Log the properties of the last feature
-  console.log("Last feature:", lastFeature.getId());
-  console.log(features);
-  updatePropertyID(lastFeatureId);
+  features.forEach((feature) => {
+    const drawnFeatureIds = feature.getId();
+    updatePropertyID(drawnFeatureIds);
+  });
   wfsVectorSource.refresh();
+});
+
+map.on("click", function (event) {
+  // Get the coordinates of the pointer
+  const coordinates = event.coordinate;
+  console.log(coordinates);
 });
