@@ -120,7 +120,7 @@ const wfsVectorSourcePoints = new VectorSource({
 //ADD WFS
 const wfsVectorLayerPoints = new VectorLayer({
   source: wfsVectorSourcePoints,
-  title: "Points Vector Layer",
+  title: "Points",
   // crossOrigin: "anonymous",
   // opacity: 0,
   visible: true,
@@ -135,7 +135,7 @@ const wfsVectorSourcePolygon = new VectorSource({
 //ADD WFS
 const wfsVectorLayerPolygon = new VectorLayer({
   source: wfsVectorSourcePolygon,
-  title: "Polygon Vector Layer",
+  title: "Polygon",
   // crossOrigin: "anonymous",
   // opacity: 0,
   visible: true,
@@ -150,7 +150,7 @@ const wfsVectorSourceLine = new VectorSource({
 //ADD WFS
 const wfsVectorLayerLine = new VectorLayer({
   source: wfsVectorSourceLine,
-  title: "Line Vector Layer",
+  title: "Line",
   // crossOrigin: "anonymous",
   // opacity: 0,
   visible: true,
@@ -352,118 +352,163 @@ map.addControl(layerSwitcher);
 let layerParam,
   layerType,
   vectorLayer,
-  featureName,
+  layerName,
   wfsVectorSource,
   formattedCoordinates,
-  workspace = "test",
+  workspace,
   body,
-  featureIDvalue;
+  featureIDvalue,
+  draw,
+  modify;
 
 layerSwitcher.on("select", (e) => {
   const layer = e.layer;
-  const layerName = layer.get("title");
-  const features = layer.getSource().getFeatures();
-  // features.forEach((feature) => {
-  //   console.log(feature.getGeometry().getCoordinates());
-  // });
-  if (layerName === "Line Vector Layer") {
-    layerParam = "test:line";
-    layerType = "LineString";
-    featureName = "line";
-    vectorLayer = wfsVectorLayerLine;
-    wfsVectorSource = wfsVectorSourceLine;
-    console.log(layerType);
-  } else if (layerName === "Points Vector Layer") {
-    layerParam = "test:points";
-    layerType = "Point";
-    featureName = "points";
-    vectorLayer = wfsVectorLayerPoints;
-    wfsVectorSource = wfsVectorSourcePoints;
-    console.log(layerParam);
-  } else if (layerName === "Polygon Vector Layer") {
-    layerParam = "test:polygon";
-    layerType = "Polygon";
-    featureName = "polygon";
-    vectorLayer = wfsVectorLayerPolygon;
-    wfsVectorSource = wfsVectorSourcePolygon;
-    console.log(layerParam);
+  const source = layer.getSource();
+  const features = source.getFeatures();
+  const url = source.getUrl();
+
+  // Extract workspace and layer name from the URL
+  const urlParts = new URL(url);
+  const layerParam = urlParts.searchParams.get("typeName"); // Get the typeName parameter from the URL
+  const [workspace, layerName] = layerParam.split(":"); // Split the typeName into workspace and layerName
+
+  function capitalizeFirstLetter(string) {
+    return string.charAt(0).toUpperCase() + string.slice(1);
   }
+
+  function getWfsVectorLayerByName(layerName) {
+    // Assuming wfsVectorLayer is a global variable
+    return "wfsVectorLayer" + capitalizeFirstLetter(layerName);
+  }
+  vectorLayer = getWfsVectorLayerByName(layerName);
+  function getWfsSourceLayerByName(layerName) {
+    // Assuming wfsVectorLayer is a global variable
+    return "wfsVectorSource" + capitalizeFirstLetter(layerName);
+  }
+  wfsVectorSource = getWfsSourceLayerByName(layerName);
+
+  // Assuming all features in the layer have the same geometry type
+  const geometryType =
+    features.length > 0 ? features[0].getGeometry().getType() : null;
+
+  if (geometryType === "Point") {
+    layerType = "Point";
+  } else if (geometryType === "MultiPolygon") {
+    layerType = "Polygon";
+  } else if (geometryType === "MultiLineString") {
+    layerType = "LineString";
+  }
+  console.log("Layer name:", layerName);
+  console.log("Workspace:", workspace);
+  console.log("Fullname:", layerParam);
+  console.log("Geometry Type:", layerType);
+  console.log(vectorLayer);
+  console.log(wfsVectorSource);
 });
 
-//DRAW INTERACTION
-// Create a vector source and layer for the drawn features
-// const vectorSource = new VectorSource();
-// const vectorLayer = new VectorLayer({
-//   source: vectorSource,
-//   displayInLayerSwitcher: false,
-// });
-// map.addLayer(vectorLayer);
-
-const drawFeature = document.getElementById("drawPolygon");
 const selectFeature = document.getElementById("selectFeature");
-const selectByPolygon = document.getElementById("selectByPolygon");
 const modifyfeature = document.getElementById("modifyFeature");
-const deletefeature = document.getElementById("deleteFeature");
-let select, draw, listener, sketch, modify;
-
-// drawFeature.addEventListener("click", (e) => {
-//   // Drawing interaction
-//   draw = new Draw({
-//     source: vectorSource,
-//     type: "Point",
-//     //only draw when Ctrl is pressed.
-//     // condition: platformModifierKeyOnly,
-//   });
-//   map.addInteraction(draw);
-// });
 
 //MODIFY INTERACTION
 modifyfeature.addEventListener("click", (e) => {
+  if (!vectorLayer) {
+    alert("Please select a layer first.");
+    return;
+  }
   map.removeInteraction(draw);
-  const modify = new Modify({ source: wfsVectorLayerLine.getSource() });
+  const modify = new Modify({ source: wfsVectorSource });
   map.addInteraction(modify);
 
   // Define a function to handle the geometry modification event
   modify.on("modifyend", function (event) {
     // Get the modified feature
     const modifiedFeature = event.features.item(0);
-
     // Get the modified geometry
     const modifiedGeometry = modifiedFeature.getGeometry().getCoordinates();
-
-    const formattedCoordinates = modifiedGeometry
-      .map((pairArray) => pairArray.map((pair) => pair.join(",")).join(" "))
-      .join(" ");
-
-    console.log(formattedCoordinates);
+    if (layerType === "Polygon") {
+      formattedCoordinates = modifiedGeometry[0][0]
+        .map((coord) => `${coord[0]},${coord[1]}`)
+        .join(" ");
+      console.log(formattedCoordinates);
+      body = `<wfs:Transaction service="WFS" version="1.0.0"
+      xmlns:wfs="http://www.opengis.net/wfs"
+      xmlns:ogc="http://www.opengis.net/ogc"
+      xmlns:gml="http://www.opengis.net/gml"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="http://www.opengis.net/wfs http://schemas.opengis.net/wfs/1.0.0/WFS-transaction.xsd">
+      <wfs:Update typeName="${layerParam}">
+        <wfs:Property>
+          <wfs:Name>geom</wfs:Name>
+          <wfs:Value>
+            <gml:Polygon srsName="EPSG:32634">
+              <gml:outerBoundaryIs>
+                <gml:LinearRing>
+                  <gml:coordinates>${formattedCoordinates}</gml:coordinates>
+                </gml:LinearRing>
+              </gml:outerBoundaryIs>
+            </gml:Polygon>
+          </wfs:Value>
+        </wfs:Property>
+        <ogc:Filter>
+          <ogc:FeatureId fid="${modifiedFeature.getId()}"/>
+        </ogc:Filter>
+      </wfs:Update>
+    </wfs:Transaction>`;
+    } else if (layerType === "LineString") {
+      formattedCoordinates = modifiedGeometry
+        .map((pairArray) => pairArray.map((pair) => pair.join(",")).join(" "))
+        .join(" ");
+      body = `<wfs:Transaction service="WFS" version="1.0.0"
+        xmlns:topp="http://www.openplans.org/topp"
+        xmlns:ogc="http://www.opengis.net/ogc"
+        xmlns:wfs="http://www.opengis.net/wfs"
+        xmlns:gml="http://www.opengis.net/gml"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.opengis.net/wfs http://schemas.opengis.net/wfs/1.0.0/WFS-transaction.xsd">
+        <wfs:Update typeName="${layerParam}">
+          <wfs:Property>
+            <wfs:Name>geom</wfs:Name>
+            <wfs:Value>
+              <gml:MultiLineString srsName="http://www.opengis.net/gml/srs/epsg.xml#32634">
+                <gml:lineStringMember>
+                  <gml:LineString>
+                    <gml:coordinates>${formattedCoordinates}</gml:coordinates>
+                  </gml:LineString>
+                </gml:lineStringMember>
+              </gml:MultiLineString>
+            </wfs:Value>
+          </wfs:Property>
+          <ogc:Filter>
+            <ogc:FeatureId fid="${modifiedFeature.getId()}"/>
+          </ogc:Filter>
+        </wfs:Update>
+      </wfs:Transaction>`;
+    } else if (layerType === "Point") {
+      formattedCoordinates = modifiedGeometry.join(",");
+      body = `<wfs:Transaction service="WFS" version="1.0.0"
+      xmlns:wfs="http://www.opengis.net/wfs"
+      xmlns:ogc="http://www.opengis.net/ogc"
+      xmlns:gml="http://www.opengis.net/gml"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="http://www.opengis.net/wfs http://schemas.opengis.net/wfs/1.0.0/WFS-transaction.xsd">
+      <wfs:Update typeName="${layerParam}">
+        <wfs:Property>
+          <wfs:Name>geom</wfs:Name>
+          <wfs:Value>
+            <gml:Point srsName="EPSG:32634">
+              <gml:coordinates>${formattedCoordinates}</gml:coordinates>
+            </gml:Point>
+          </wfs:Value>
+        </wfs:Property>
+        <ogc:Filter>
+          <ogc:FeatureId fid="${modifiedFeature.getId()}"/>
+        </ogc:Filter>
+      </wfs:Update>
+    </wfs:Transaction>`;
+    }
 
     // Send a WFS Transaction request to update the geometry
     const url = "http://localhost:8080/geoserver/test/ows";
-    const xmlPayload = `<wfs:Transaction service="WFS" version="1.0.0"
-                      xmlns:topp="http://www.openplans.org/topp"
-                      xmlns:ogc="http://www.opengis.net/ogc"
-                      xmlns:wfs="http://www.opengis.net/wfs"
-                      xmlns:gml="http://www.opengis.net/gml"
-                      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-                      xsi:schemaLocation="http://www.opengis.net/wfs http://schemas.opengis.net/wfs/1.0.0/WFS-transaction.xsd">
-                      <wfs:Update typeName="test:line">
-                        <wfs:Property>
-                          <wfs:Name>geom</wfs:Name>
-                          <wfs:Value>
-                            <gml:MultiLineString srsName="http://www.opengis.net/gml/srs/epsg.xml#32634">
-                              <gml:lineStringMember>
-                                <gml:LineString>
-                                  <gml:coordinates>${formattedCoordinates}</gml:coordinates>
-                                </gml:LineString>
-                              </gml:lineStringMember>
-                            </gml:MultiLineString>
-                          </wfs:Value>
-                        </wfs:Property>
-                        <ogc:Filter>
-                          <ogc:FeatureId fid="${modifiedFeature.id_}"/>
-                        </ogc:Filter>
-                      </wfs:Update>
-                    </wfs:Transaction>`;
 
     // Send the WFS Transaction request
     fetch(url, {
@@ -471,7 +516,7 @@ modifyfeature.addEventListener("click", (e) => {
       headers: {
         "Content-Type": "text/xml",
       },
-      body: xmlPayload,
+      body: body,
     })
       .then((response) => response.text())
       .then((data) => {
@@ -520,11 +565,7 @@ function selectStyle(feature) {
   }
 }
 
-let selectSingleClick,
-  selectedFeatureValueID,
-  featureID,
-  url,
-  nextID = 10;
+let selectSingleClick, featureID, url;
 
 selectFeature.addEventListener("click", (e) => {
   map.removeInteraction(draw);
@@ -532,33 +573,16 @@ selectFeature.addEventListener("click", (e) => {
   selectSingleClick = new Select({ style: selectStyle, hitTolerance: 5 });
   map.addInteraction(selectSingleClick);
 
-  selectSingleClick.on("select", function (e) {
-    const selectedFeatures = selectSingleClick.getFeatures().getArray();
-    // console.log(selectedFeatures);
-    e.selected.forEach(function (feature) {
-      const selectedFeatureValueID = feature.id_;
-      console.log(feature);
-      // Get the geometry of the feature
-      const geometry = feature.getGeometry();
-      // Check the type of geometry
-      if (geometry instanceof Point) {
-        // For Point geometry
-        const coordinates = geometry.getCoordinates();
-      } else if (geometry instanceof LineString) {
-        // For LineString geometry
-        const coordinates = geometry.getCoordinates();
-      } else if (geometry instanceof Polygon) {
-        // For Polygon geometry
-        const coordinates = geometry.getCoordinates();
-      }
-      // You can handle other geometry types similarly
-    });
-  });
+  selectSingleClick.on("select", function (e) {});
 });
 
 const drawFeatureWfs = document.getElementById("drawWfs");
 // Draw Feature Event Listener
 drawFeatureWfs.addEventListener("click", (e) => {
+  if (!vectorLayer) {
+    alert("Please select a layer first.");
+    return; // Stop further execution
+  }
   draw = new Draw({
     source: vectorLayer.getSource(),
     type: layerType,
@@ -584,7 +608,7 @@ drawFeatureWfs.addEventListener("click", (e) => {
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:schemaLocation="http://www.opengis.net/wfs http://schemas.opengis.net/wfs/1.0.0/WFS-transaction.xsd http://www.openplans.org http://localhost:8080/geoserver/wfs/DescribeFeatureType?typename=test:line">
     <wfs:Insert>
-      <${featureName}>
+      <${layerName}>
         <${workspace}:geom>
           <gml:MultiLineString srsName="http://www.opengis.net/gml/srs/epsg.xml#32634">
             <gml:lineStringMember>
@@ -597,7 +621,7 @@ drawFeatureWfs.addEventListener("click", (e) => {
           </gml:MultiLineString>
         </${workspace}:geom>
         <${workspace}:TYPE>alley</${workspace}:TYPE>
-      </${featureName}>
+      </${layerName}>
     </wfs:Insert>
     </wfs:Transaction>`;
     } else if (layerType === "Polygon") {
@@ -617,7 +641,7 @@ drawFeatureWfs.addEventListener("click", (e) => {
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:schemaLocation="http://www.opengis.net/wfs http://schemas.opengis.net/wfs/1.0.0/WFS-transaction.xsd http://www.openplans.org http://localhost:8080/geoserver/wfs/DescribeFeatureType?typename=test:line">
     <wfs:Insert>
-      <${featureName}>
+      <${layerName}>
         <${workspace}:geom>
           <gml:MultiLineString srsName="http://www.opengis.net/gml/srs/epsg.xml#32634">
             <gml:lineStringMember>
@@ -630,7 +654,7 @@ drawFeatureWfs.addEventListener("click", (e) => {
           </gml:MultiLineString>
         </${workspace}:geom>
         <${workspace}:TYPE>alley</${workspace}:TYPE>
-      </${featureName}>
+      </${layerName}>
     </wfs:Insert>
     </wfs:Transaction>`;
     } else if (layerType === "Point") {
@@ -643,7 +667,7 @@ drawFeatureWfs.addEventListener("click", (e) => {
       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
       xsi:schemaLocation="http://www.opengis.net/wfs http://schemas.opengis.net/wfs/1.0.0/WFS-transaction.xsd http://www.openplans.org http://localhost:8080/geoserver/wfs/DescribeFeatureType?typename=test:line">
       <wfs:Insert>
-        <${featureName}>
+        <${layerName}>
           <${workspace}:geom>
           <gml:Point srsDimension="2" srsName="urn:x-ogc:def:crs:EPSG:32634">
           <gml:coordinates xmlns:gml="http://www.opengis.net/gml"
@@ -651,7 +675,7 @@ drawFeatureWfs.addEventListener("click", (e) => {
           </gml:Point>
           </${workspace}:geom>
           <${workspace}:TYPE>alley</${workspace}:TYPE>
-        </${featureName}>
+        </${layerName}>
       </wfs:Insert>
       </wfs:Transaction>`;
     }
@@ -691,12 +715,19 @@ drawFeatureWfs.addEventListener("click", (e) => {
 // DELETE WFS Event Listener
 const deleteWFS = document.getElementById("deleteWfs");
 deleteWFS.addEventListener("click", (e) => {
+  if (!vectorLayer) {
+    alert("Please select a layer first.");
+    return;
+  }
+  if (!selectSingleClick) {
+    alert("Please select a feature first.");
+    return;
+  }
   const selectedFeatures = selectSingleClick.getFeatures();
   const selectedFeaturesArray = selectedFeatures.getArray();
-  console.log(selectedFeaturesArray);
   selectedFeaturesArray.forEach((feature) => {
     // Do something with the feature
-    vectorLayer.getSource().removeFeature(feature);
+    wfsVectorSource.removeFeature(feature);
     const selectedFeatureValueID = feature.get("id");
     // You can perform any other operations with the feature here
     url = "http://localhost:8080/geoserver/test/ows";
@@ -772,11 +803,15 @@ function getFeatureInfo() {
     // Check if a feature is present within the specified tolerance
     map.forEachFeatureAtPixel(
       pixel,
-      function (feature) {
-        featureID = feature.getId();
+      function (feature, layer) {
         // Access properties of the clicked feature
-        var properties = feature.getProperties();
+        const properties = feature.getProperties();
         updatePopupContent(properties);
+
+        // Set the layer name as the title
+        const layerName = layer.get("title");
+        document.getElementById("popup-title").innerText = layerName;
+
         // Set popup position to the clicked coordinate
         popup.setPosition(coordinate);
       },
@@ -868,20 +903,6 @@ saveButton.addEventListener("click", (e) => {
   saveChanges(updatedProperties);
 });
 
-//UPDATE FEATURE ID
-// const addIDButton = document.getElementById("addID");
-
-// addIDButton.addEventListener("click", function (e) {
-//   const selectedFeatures = selectSingleClick.getFeatures();
-//   const selectedFeaturesArray = selectedFeatures.getArray();
-//   selectedFeaturesArray.forEach((feature) => {
-//     const properties = feature.getProperties();
-//     console.log(properties.id);
-//     console.log(feature.id_);
-//     updatePropertyID(feature.id_);
-//   });
-// });
-
 //SAVE TO LAYER
 const saveToLayerButton = document.getElementById("saveToLayer");
 
@@ -938,10 +959,4 @@ saveToLayerButton.addEventListener("click", (e) => {
     updatePropertyID(drawnFeatureIds);
   });
   wfsVectorSource.refresh();
-});
-
-map.on("click", function (event) {
-  // Get the coordinates of the pointer
-  const coordinates = event.coordinate;
-  console.log(coordinates);
 });
