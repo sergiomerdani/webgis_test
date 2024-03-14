@@ -352,8 +352,8 @@ map.addControl(layerSwitcher);
 let layerParam,
   layerType,
   vectorLayer,
+  source,
   layerName,
-  wfsVectorSource,
   formattedCoordinates,
   workspace,
   body,
@@ -363,47 +363,63 @@ let layerParam,
 
 layerSwitcher.on("select", (e) => {
   const layer = e.layer;
-  const source = layer.getSource();
+  source = layer.getSource();
   const features = source.getFeatures();
   const url = source.getUrl();
 
   // Extract workspace and layer name from the URL
   const urlParts = new URL(url);
   const layerParam = urlParts.searchParams.get("typeName"); // Get the typeName parameter from the URL
-  const [workspace, layerName] = layerParam.split(":"); // Split the typeName into workspace and layerName
+  [workspace, layerName] = layerParam.split(":"); // Split the typeName into workspace and layerName
 
-  function capitalizeFirstLetter(string) {
-    return string.charAt(0).toUpperCase() + string.slice(1);
-  }
+  // function capitalizeFirstLetter(string) {
+  //   return string.charAt(0).toUpperCase() + string.slice(1);
+  // }
 
-  function getWfsVectorLayerByName(layerName) {
-    // Assuming wfsVectorLayer is a global variable
-    return "wfsVectorLayer" + capitalizeFirstLetter(layerName);
+  // function getWfsVectorLayerByName(layerName) {
+  //   // Assuming wfsVectorLayer is a global variable
+  //   return "wfsVectorLayer" + capitalizeFirstLetter(layerName);
+  // }
+  // vectorLayer = getWfsVectorLayerByName(layerName);
+  // function getWfsSourceLayerByName(layerName) {
+  //   // Assuming wfsVectorLayer is a global variable
+  //   return "wfsVectorSource" + capitalizeFirstLetter(layerName);
+  // }
+  // wfsVectorSource = getWfsSourceLayerByName(layerName);
+
+  //----------------!------------------------
+  //If there is no feature in the source we cannot get the feature type.
+  //How to get object constructed name from selecting layer in tree panel
+  if (layerName === "line") {
+    layerType = "LineString";
+    vectorLayer = wfsVectorLayerLine;
+    // wfsVectorSource = wfsVectorSourceLine;
+  } else if (layerName === "points") {
+    layerType = "Point";
+    vectorLayer = wfsVectorLayerPoints;
+    // wfsVectorSource = wfsVectorSourcePoints;
+  } else if (layerName === "polygon") {
+    layerType = "Polygon";
+    vectorLayer = wfsVectorLayerPolygon;
+    // wfsVectorSource = wfsVectorSourcePolygon;
   }
-  vectorLayer = getWfsVectorLayerByName(layerName);
-  function getWfsSourceLayerByName(layerName) {
-    // Assuming wfsVectorLayer is a global variable
-    return "wfsVectorSource" + capitalizeFirstLetter(layerName);
-  }
-  wfsVectorSource = getWfsSourceLayerByName(layerName);
 
   // Assuming all features in the layer have the same geometry type
   const geometryType =
     features.length > 0 ? features[0].getGeometry().getType() : null;
 
   if (geometryType === "Point") {
-    layerType = "Point";
   } else if (geometryType === "MultiPolygon") {
-    layerType = "Polygon";
   } else if (geometryType === "MultiLineString") {
-    layerType = "LineString";
   }
-  console.log("Layer name:", layerName);
-  console.log("Workspace:", workspace);
-  console.log("Fullname:", layerParam);
-  console.log("Geometry Type:", layerType);
+
+  console.log(layerName);
+  console.log(layerParam);
+  console.log(workspace);
+  console.log(geometryType);
+  console.log(layerType);
   console.log(vectorLayer);
-  console.log(wfsVectorSource);
+  console.log(source);
 });
 
 const selectFeature = document.getElementById("selectFeature");
@@ -416,7 +432,7 @@ modifyfeature.addEventListener("click", (e) => {
     return;
   }
   map.removeInteraction(draw);
-  const modify = new Modify({ source: wfsVectorSource });
+  const modify = new Modify({ source: source });
   map.addInteraction(modify);
 
   // Define a function to handle the geometry modification event
@@ -436,7 +452,7 @@ modifyfeature.addEventListener("click", (e) => {
       xmlns:gml="http://www.opengis.net/gml"
       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
       xsi:schemaLocation="http://www.opengis.net/wfs http://schemas.opengis.net/wfs/1.0.0/WFS-transaction.xsd">
-      <wfs:Update typeName="${layerParam}">
+      <wfs:Update typeName="${layerName}">
         <wfs:Property>
           <wfs:Name>geom</wfs:Name>
           <wfs:Value>
@@ -465,7 +481,7 @@ modifyfeature.addEventListener("click", (e) => {
         xmlns:gml="http://www.opengis.net/gml"
         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
         xsi:schemaLocation="http://www.opengis.net/wfs http://schemas.opengis.net/wfs/1.0.0/WFS-transaction.xsd">
-        <wfs:Update typeName="${layerParam}">
+        <wfs:Update typeName="${layerName}">
           <wfs:Property>
             <wfs:Name>geom</wfs:Name>
             <wfs:Value>
@@ -491,7 +507,7 @@ modifyfeature.addEventListener("click", (e) => {
       xmlns:gml="http://www.opengis.net/gml"
       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
       xsi:schemaLocation="http://www.opengis.net/wfs http://schemas.opengis.net/wfs/1.0.0/WFS-transaction.xsd">
-      <wfs:Update typeName="${layerParam}">
+      <wfs:Update typeName="${layerName}">
         <wfs:Property>
           <wfs:Name>geom</wfs:Name>
           <wfs:Value>
@@ -579,12 +595,12 @@ selectFeature.addEventListener("click", (e) => {
 const drawFeatureWfs = document.getElementById("drawWfs");
 // Draw Feature Event Listener
 drawFeatureWfs.addEventListener("click", (e) => {
-  if (!vectorLayer) {
+  if (!layerName) {
     alert("Please select a layer first.");
-    return; // Stop further execution
+    return;
   }
   draw = new Draw({
-    source: vectorLayer.getSource(),
+    source: source,
     type: layerType,
   });
 
@@ -700,7 +716,7 @@ drawFeatureWfs.addEventListener("click", (e) => {
         return response.text();
       })
       .then((data) => {
-        wfsVectorSource.refresh();
+        source.refresh();
 
         // Handle the data returned by the server
         console.log("Response from server:", data);
@@ -727,8 +743,9 @@ deleteWFS.addEventListener("click", (e) => {
   const selectedFeaturesArray = selectedFeatures.getArray();
   selectedFeaturesArray.forEach((feature) => {
     // Do something with the feature
-    wfsVectorSource.removeFeature(feature);
+    source.removeFeature(feature);
     const selectedFeatureValueID = feature.get("id");
+    console.log(selectedFeatureValueID);
     // You can perform any other operations with the feature here
     url = "http://localhost:8080/geoserver/test/ows";
     const body = `<wfs:Transaction service="WFS" version="1.0.0"
@@ -736,7 +753,7 @@ deleteWFS.addEventListener("click", (e) => {
                   xmlns:ogc="http://www.opengis.net/ogc"
                   xmlns:wfs="http://www.opengis.net/wfs"
                   xmlns:topp="http://www.openplans.org/topp">
-                  <wfs:Delete typeName="${layerParam}">
+                  <wfs:Delete typeName="${layerName}">
                     <ogc:Filter>
                       <ogc:PropertyIsEqualTo>
                         <ogc:PropertyName>id</ogc:PropertyName>
@@ -757,7 +774,6 @@ deleteWFS.addEventListener("click", (e) => {
     // Make the POST request using the Fetch API
     fetch(url, options)
       .then((response) => {
-        console.log(response);
         if (!response.ok) {
           throw new Error("Network response was not ok");
         }
@@ -915,7 +931,7 @@ function updatePropertyID(featureID) {
     xmlns:topp="http://www.openplans.org/topp"
     xmlns:ogc="http://www.opengis.net/ogc"
     xmlns:wfs="http://www.opengis.net/wfs">
-    <wfs:Update typeName="${layerParam}">
+    <wfs:Update typeName="${layerName}">
     <wfs:Property>
     <wfs:Name>id</wfs:Name>
     <wfs:Value>${featureIDvalue}</wfs:Value>
@@ -952,11 +968,12 @@ function updatePropertyID(featureID) {
 
 saveToLayerButton.addEventListener("click", (e) => {
   // Get all features from the vector source
-  const features = wfsVectorSource.getFeatures();
+  const features = source.getFeatures();
 
   features.forEach((feature) => {
     const drawnFeatureIds = feature.getId();
     updatePropertyID(drawnFeatureIds);
   });
-  wfsVectorSource.refresh();
+  source.refresh();
+  map.removeInteraction(draw);
 });
