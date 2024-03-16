@@ -96,6 +96,10 @@ const extent3857 = transformExtent(extent6870, projection6870, "EPSG:4326");
 //   displayInLayerSwitcher: true,
 // });
 
+const wfsLayerUrl =
+  "http://localhost:8080/geoserver/test/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=";
+const wfsLayerUrlEnd = "&maxFeatures=50&outputFormat=application/json";
+
 const shkshInstitucionet = new TileLayer({
   source: new TileWMS({
     url: "http://localhost:8080/geoserver/test/wms?service=WMS",
@@ -112,7 +116,7 @@ const shkshInstitucionet = new TileLayer({
 });
 
 const wfsVectorSourcePoints = new VectorSource({
-  url: "http://localhost:8080/geoserver/test/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=test:points&maxFeatures=50&outputFormat=application/json",
+  url: wfsLayerUrl + "test:points" + wfsLayerUrlEnd,
   format: new GeoJSON(),
   attributions: "@geoserver",
 });
@@ -127,7 +131,7 @@ const wfsVectorLayerPoints = new VectorLayer({
 });
 
 const wfsVectorSourcePolygon = new VectorSource({
-  url: "http://localhost:8080/geoserver/test/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=test:polygon&maxFeatures=50&outputFormat=application/json",
+  url: wfsLayerUrl + "test:polygon" + wfsLayerUrlEnd,
   format: new GeoJSON(),
   attributions: "@geoserver",
 });
@@ -142,7 +146,7 @@ const wfsVectorLayerPolygon = new VectorLayer({
 });
 
 const wfsVectorSourceLine = new VectorSource({
-  url: "http://localhost:8080/geoserver/test/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=test:line&maxFeatures=50&outputFormat=application/json",
+  url: wfsLayerUrl + "test:line" + wfsLayerUrlEnd,
   format: new GeoJSON(),
   attributions: "@geoserver",
 });
@@ -340,6 +344,10 @@ layerGroups.forEach((layerGroup) => {
   hasVisibleSubLayer(layerGroup);
 });
 
+const test = () => {
+  return "wfsVectorLayerLine";
+};
+
 //____________________________________________________________________
 
 const layerSwitcher = new LayerSwitcher({
@@ -367,59 +375,32 @@ layerSwitcher.on("select", (e) => {
   const features = source.getFeatures();
   const url = source.getUrl();
 
+  vectorLayer = layer;
   // Extract workspace and layer name from the URL
   const urlParts = new URL(url);
   const layerParam = urlParts.searchParams.get("typeName"); // Get the typeName parameter from the URL
   [workspace, layerName] = layerParam.split(":"); // Split the typeName into workspace and layerName
-
-  // function capitalizeFirstLetter(string) {
-  //   return string.charAt(0).toUpperCase() + string.slice(1);
-  // }
-
-  // function getWfsVectorLayerByName(layerName) {
-  //   // Assuming wfsVectorLayer is a global variable
-  //   return "wfsVectorLayer" + capitalizeFirstLetter(layerName);
-  // }
-  // vectorLayer = getWfsVectorLayerByName(layerName);
-  // function getWfsSourceLayerByName(layerName) {
-  //   // Assuming wfsVectorLayer is a global variable
-  //   return "wfsVectorSource" + capitalizeFirstLetter(layerName);
-  // }
-  // wfsVectorSource = getWfsSourceLayerByName(layerName);
-
-  //----------------!------------------------
-  //If there is no feature in the source we cannot get the feature type.
-  //How to get object constructed name from selecting layer in tree panel
-  if (layerName === "line") {
-    layerType = "LineString";
-    vectorLayer = wfsVectorLayerLine;
-    // wfsVectorSource = wfsVectorSourceLine;
-  } else if (layerName === "points") {
-    layerType = "Point";
-    vectorLayer = wfsVectorLayerPoints;
-    // wfsVectorSource = wfsVectorSourcePoints;
-  } else if (layerName === "polygon") {
-    layerType = "Polygon";
-    vectorLayer = wfsVectorLayerPolygon;
-    // wfsVectorSource = wfsVectorSourcePolygon;
-  }
 
   // Assuming all features in the layer have the same geometry type
   const geometryType =
     features.length > 0 ? features[0].getGeometry().getType() : null;
 
   if (geometryType === "Point") {
+    layerType = "Point";
   } else if (geometryType === "MultiPolygon") {
+    layerType = "Polygon";
   } else if (geometryType === "MultiLineString") {
+    layerType = "LineString";
   }
 
-  console.log(layerName);
+  // console.log(layerName);
   console.log(layerParam);
   console.log(workspace);
-  console.log(geometryType);
+  console.log("Geometry Type: ", geometryType);
   console.log(layerType);
-  console.log(vectorLayer);
+  console.log("VectorLayer: ", vectorLayer);
   console.log(source);
+  console.log(url);
 });
 
 const selectFeature = document.getElementById("selectFeature");
